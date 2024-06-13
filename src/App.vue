@@ -1,47 +1,39 @@
 <template>
   <v-app>
-    <v-main>
-      <v-container>
-        <PlayerList :players="players" @save-players="updatePlayers" @clear-scores="clearScores" @randomize-players="randomizePlayers" />
-        <MatchSchedule :players="players" ref="matchSchedule" />
-        <PlayerScores :players="players" />
-      </v-container>
-    </v-main>
+    <v-container>
+      <v-toolbar flat color="primary">
+        <v-toolbar-title class="white--text">Padel Americano</v-toolbar-title>
+      </v-toolbar>
+      <GameSettings @create-schedule="triggerCreateSchedule" />
+      <MatchSchedule />
+      <ScoreBoard />
+    </v-container>
   </v-app>
 </template>
 
 <script>
-import PlayerList from './components/PlayerList.vue';
-import MatchSchedule from './components/MatchSchedule.vue';
-import PlayerScores from './components/PlayerScores.vue';
+import GameSettings from "./components/GameSettings.vue";
+import MatchSchedule from "./components/MatchSchedule.vue";
+import ScoreBoard from "./components/ScoreBoard.vue";
 
 export default {
-  name: 'App',
   components: {
-    PlayerList,
+    GameSettings,
     MatchSchedule,
-    PlayerScores,
+    ScoreBoard,
   },
   data() {
     return {
-      players: JSON.parse(localStorage.getItem('players')) || [
-        { name: '' }, { name: '' }, { name: '' }, { name: '' },
-        { name: '' }, { name: '' }, { name: '' }, { name: '' }
-      ]
+      shouldCreateSchedule: false,
     };
   },
   methods: {
-    updatePlayers(newPlayers) {
-      this.players = newPlayers;
-      this.$refs.matchSchedule.generateMatches();
+    triggerCreateSchedule() {
+      this.shouldCreateSchedule = true;
     },
-    clearScores() {
-      this.$refs.matchSchedule.clearScores();
-    },
-    randomizePlayers() {
-      this.players = this.players.sort(() => Math.random() - 0.5);
-      this.$refs.matchSchedule.generateMatches();
-    }
-  }
-}
+  },
+};
 </script>
+
+<style>
+</style>

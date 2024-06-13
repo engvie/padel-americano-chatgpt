@@ -1,169 +1,136 @@
 <template>
-  <v-card>
-    <v-card-title>Spelschema</v-card-title>
-    <v-card-text>
-      <v-text-field
-        v-model.number="totalPoints"
-        label="Totalt antal poäng per match"
-        type="number"
-        @input="updateTotalPoints"
-      />
-      <v-list>
-        <v-list-item v-for="(match, index) in matches" :key="index">
-          <div><strong>Match {{ index + 1 }}:</strong></div>
+  <v-container>
+    <v-row v-for="(match, matchIndex) in matchSchedule" :key="matchIndex">
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="headline">Match {{ matchIndex + 1 }}</v-card-title>
           <v-row>
-            <v-col cols="6">
-              <div>Team 1: {{ match[0].name }} & {{ match[1].name }}</div>
-              <v-text-field
-                v-model.number="team1Scores[index]"
-                label="Poäng Lag 1"
-                type="number"
-                @input="updateScore(index, 1)"
-              />
-            </v-col>
-            <v-col cols="6">
-              <div>Team 2: {{ match[2].name }} & {{ match[3].name }}</div>
-              <v-text-field
-                v-model.number="team2Scores[index]"
-                label="Poäng Lag 2"
-                type="number"
-                @input="updateScore(index, 2)"
-              />
+            <v-col v-for="(court, courtIndex) in match" :key="courtIndex" cols="6">
+              <v-card-title class="headline">Bana {{ courtIndex + 1 }}</v-card-title>
+              <v-card-text>
+                <strong>Lag A:</strong> {{ court.teams[0][0] }} / {{ court.teams[0][1] }}
+                <v-text-field
+                  label="Poäng Lag A"
+                  type="number"
+                  v-model.number="court.scores[0]"
+                  @input="updateScore(matchIndex, courtIndex, 0)"
+                ></v-text-field>
+                <br />
+                <strong>Lag B:</strong> {{ court.teams[1][0] }} / {{ court.teams[1][1] }}
+                <v-text-field
+                  label="Poäng Lag B"
+                  type="number"
+                  v-model.number="court.scores[1]"
+                  @input="updateScore(matchIndex, courtIndex, 1)"
+                ></v-text-field>
+              </v-card-text>
             </v-col>
           </v-row>
-        </v-list-item>
-      </v-list>
-    </v-card-text>
-  </v-card>
+        </v-card>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script>
 export default {
-  name: 'MatchSchedule',
-  props: ['players'],
   data() {
     return {
-      localPlayers: this.copyPlayers(this.players), // Create a local copy of players
-      matches: [],
-      team1Scores: Array(7).fill(0), // Array to store scores for team 1
-      team2Scores: Array(7).fill(0), // Array to store scores for team 2
-      totalPoints: 32, // Default total points per match
+      matchSchedule: [],
+      totalPoints: 32,
     };
   },
+  methods: {
+    createMatchSchedule() {
+      const gameSettings = JSON.parse(localStorage.getItem("gameSettings"));
+      if (!gameSettings) {
+        console.error("No game settings found in local storage");
+        return;
+      }
+
+      const playerCount = Number(gameSettings.playerCount);
+      const players = gameSettings.players;
+      const courtCount = Number(gameSettings.courtCount);
+      this.totalPoints = Number(gameSettings.totalPoints);
+
+      if (players.length !== playerCount) {
+        console.error("Invalid input for game settings");
+        return;
+      }
+
+      if (playerCount % 2 !== 0) {
+        console.error("Player count must be even for round-robin scheduling.");
+        return;
+      }
+
+      this.matchSchedule = [];
+
+      const halfSize = playerCount / 2;
+
+      // Shuffle the players
+      const shuffleArray = (array) => {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+      };
+
+      for (let round = 0; round < playerCount - 1; round++) {
+        let tempPlayers = [...players];
+        shuffleArray(tempPlayers); // Shuffle players for each round
+        let courtMatches = [];
+
+        for (let courtIndex = 0; courtIndex < courtCount; courtIndex++) {
+          if (courtIndex * 2 >= halfSize) break;
+
+          const teamA = [tempPlayers[courtIndex], tempPlayers[halfSize - 1 - courtIndex]];
+          const teamB = [tempPlayers[halfSize + courtIndex], tempPlayers[playerCount - 1 - courtIndex]];
+
+          courtMatches.push({ teams: [teamA, teamB], scores: [null, null] });
+        }
+
+        this.matchSchedule.push(courtMatches);
+
+        players.splice(1, 0, players.pop());
+      }
+
+      localStorage.setItem("matchSchedule", JSON.stringify(this.matchSchedule));
+    },
+    updateScore(matchIndex, courtIndex, teamIndex) {
+      const match = this.matchSchedule[matchIndex];
+      const court = match[courtIndex];
+      const teamAScore = court.scores[0];
+      const teamBScore = court.scores[1];
+
+      if (teamIndex === 0 && teamAScore !== null) {
+        court.scores[1] = this.totalPoints - teamAScore;
+      } else if (teamIndex === 1 && teamBScore !== null) {
+        court.scores[0] = this.totalPoints - teamBScore;
+      }
+
+      this.matchSchedule = [...this.matchSchedule];
+      localStorage.setItem("matchSchedule", JSON.stringify(this.matchSchedule));
+    },
+  },
   created() {
-    const savedTeam1Scores = JSON.parse(localStorage.getItem('team1Scores'));
-    const savedTeam2Scores = JSON.parse(localStorage.getItem('team2Scores'));
-    const savedTotalPoints = JSON.parse(localStorage.getItem('totalPoints'));
-    const savedMatches = JSON.parse(localStorage.getItem('matches'));
-
-    if (savedTeam1Scores && savedTeam2Scores) {
-      this.team1Scores = savedTeam1Scores;
-      this.team2Scores = savedTeam2Scores;
-    }
-
-    if (savedTotalPoints) {
-      this.totalPoints = savedTotalPoints;
-    }
-
-    if (savedMatches) {
-      this.matches = savedMatches;
-    } else {
-      this.generateMatches();
-    }
-
-    // Hämta ordningen på spelarna från localStorage
-    let savedPlayerOrder = JSON.parse(localStorage.getItem('playerOrder'));
-    if (savedPlayerOrder) {
-      this.localPlayers = savedPlayerOrder.map(player => this.players.find(p => p.name === player.name));
+    const savedSchedule = JSON.parse(localStorage.getItem("matchSchedule"));
+    if (savedSchedule && savedSchedule.length > 0) {
+      this.matchSchedule = savedSchedule;
     }
   },
   watch: {
-    team1Scores: {
-      handler() {
-        this.saveScoresToLocalStorage();
-      },
-      deep: true
+    "$root.$data.shouldCreateSchedule": function (newVal) {
+      if (newVal) {
+        this.createMatchSchedule();
+        this.$root.$data.shouldCreateSchedule = false;
+      }
     },
-    team2Scores: {
-      handler() {
-        this.saveScoresToLocalStorage();
-      },
-      deep: true
-    },
-    players(newPlayers) {
-      this.localPlayers = this.copyPlayers(newPlayers);
-      this.savePlayerOrderToLocalStorage();
-    }
   },
-  methods: {
-    copyPlayers(players) {
-      return players.map(player => ({ ...player }));
-    },
-    generateMatches() {
-      let playersCopy = this.copyPlayers(this.localPlayers);
-      let matches = [];
-      
-      for (let i = 0; i < 7; i++) {
-        let match = [];
-        for (let j = 0; j < 4; j++) {
-          let randomIndex = Math.floor(Math.random() * playersCopy.length);
-          match.push(playersCopy.splice(randomIndex, 1)[0]);
-        }
-        matches.push(match);
-        playersCopy = this.copyPlayers(this.localPlayers); // Reset players array
-      }
-      
-      this.matches = matches;
-      localStorage.setItem('matches', JSON.stringify(this.matches));
-    },
-    updateScore(matchIndex, team) {
-      if (team === 1) {
-        this.team2Scores[matchIndex] = this.totalPoints - this.team1Scores[matchIndex];
-      } else {
-        this.team1Scores[matchIndex] = this.totalPoints - this.team2Scores[matchIndex];
-      }
-    },
-    updateTotalPoints() {
-      if (this.totalPoints < 0) {
-        this.totalPoints = 0;
-      }
-      this.team2Scores = this.team1Scores.map(score => this.totalPoints - score);
-      this.saveTotalPointsToLocalStorage();
-    },
-    saveScoresToLocalStorage() {
-      localStorage.setItem('team1Scores', JSON.stringify(this.team1Scores));
-      localStorage.setItem('team2Scores', JSON.stringify(this.team2Scores));
-    },
-    saveTotalPointsToLocalStorage() {
-      localStorage.setItem('totalPoints', JSON.stringify(this.totalPoints));
-    },
-    savePlayerOrderToLocalStorage() {
-      const playerOrder = this.localPlayers.map(player => ({ name: player.name }));
-      localStorage.setItem('playerOrder', JSON.stringify(playerOrder));
-    },
-    clearScores() {
-      this.team1Scores = Array(7).fill(0);
-      this.team2Scores = Array(7).fill(0);
-      localStorage.removeItem('team1Scores');
-      localStorage.removeItem('team2Scores');
-    },
-    randomizePlayers() {
-      this.localPlayers = this.shufflePlayers(this.localPlayers);
-      this.savePlayerOrderToLocalStorage();
-      this.generateMatches(); // Generera nya matcher efter att ha slumpat om spelarna
-    },
-    shufflePlayers(array) {
-      let currentIndex = array.length, randomIndex;
-      
-      while (currentIndex != 0) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex--;
-        
-        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-      }
-      
-      return array;
-    }
-  }
-}
+};
 </script>
+
+<style scoped>
+.v-card {
+  margin-bottom: 20px;
+}
+</style>
