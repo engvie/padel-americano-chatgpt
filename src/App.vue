@@ -1,26 +1,47 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <v-app>
+    <v-main>
+      <v-container>
+        <PlayerList :players="players" @save-players="updatePlayers" @clear-scores="clearScores" @randomize-players="randomizePlayers" />
+        <MatchSchedule :players="players" ref="matchSchedule" />
+        <PlayerScores :players="players" />
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import PlayerList from './components/PlayerList.vue';
+import MatchSchedule from './components/MatchSchedule.vue';
+import PlayerScores from './components/PlayerScores.vue';
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    PlayerList,
+    MatchSchedule,
+    PlayerScores,
+  },
+  data() {
+    return {
+      players: JSON.parse(localStorage.getItem('players')) || [
+        { name: '' }, { name: '' }, { name: '' }, { name: '' },
+        { name: '' }, { name: '' }, { name: '' }, { name: '' }
+      ]
+    };
+  },
+  methods: {
+    updatePlayers(newPlayers) {
+      this.players = newPlayers;
+      this.$refs.matchSchedule.generateMatches();
+    },
+    clearScores() {
+      this.$refs.matchSchedule.clearScores();
+    },
+    randomizePlayers() {
+      this.players = this.players.sort(() => Math.random() - 0.5);
+      this.$refs.matchSchedule.generateMatches();
+    }
   }
 }
 </script>
-
-<style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
-</style>
